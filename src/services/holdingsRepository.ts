@@ -20,6 +20,24 @@ export async function fetchSnapshotsForDates(
   return (data ?? []) as HoldingRow[]
 }
 
+/** 資料庫目前最新的 trade_date（供「新資料」橫幅判斷） */
+export async function fetchMaxTradeDate(
+  client: SupabaseClient | null,
+): Promise<string | null> {
+  if (!client) return null
+
+  const { data, error } = await client
+    .from('holdings_snapshot')
+    .select('trade_date')
+    .order('trade_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw error
+  const row = data as { trade_date?: string } | null
+  return row?.trade_date ?? null
+}
+
 export function groupByEtfAndDate(
   rows: HoldingRow[],
   prevDate: string,

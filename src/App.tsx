@@ -10,7 +10,11 @@ import {
 import { computeAllEtfDeltas } from './lib/delta'
 import { normalizeToTradingDay, previousTradingDay } from './lib/tradingDay'
 import type { EtfDelta, HoldingRow } from './lib/types'
-import { fetchSnapshotsForDates, groupByEtfAndDate } from './services/holdingsRepository'
+import {
+  fetchMaxTradeDate,
+  fetchSnapshotsForDates,
+  groupByEtfAndDate,
+} from './services/holdingsRepository'
 import { getBrowserSupabase, useMockData } from './services/supabase'
 import { intensity, paletteBuy, paletteSell } from './lib/rankCardStyle'
 
@@ -20,6 +24,30 @@ function todayISO(): string {
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
+}
+
+const SPOTLIGHT_KEY = 'etf_spotlight_seen_v1'
+
+function readSpotlightSeen(): Set<string> {
+  try {
+    const raw = localStorage.getItem(SPOTLIGHT_KEY)
+    if (!raw) return new Set()
+    const arr = JSON.parse(raw) as unknown
+    if (!Array.isArray(arr)) return new Set()
+    return new Set(arr.filter((x): x is string => typeof x === 'string'))
+  } catch {
+    return new Set()
+  }
+}
+
+function markSpotlightSeen(tradeDate: string) {
+  try {
+    const s = readSpotlightSeen()
+    s.add(tradeDate)
+    localStorage.setItem(SPOTLIGHT_KEY, JSON.stringify([...s]))
+  } catch {
+    /* ignore */
+  }
 }
 
 export default function App() {
@@ -103,12 +131,68 @@ export default function App() {
   const buyEtfsByStock = useMemo(() => etfCodesByStockForAdded(deltas), [deltas])
   const sellEtfsByStock = useMemo(() => etfCodesByStockForRemoved(deltas), [deltas])
 
+  const missingPrev = useMemo(() => {
+    let anyPrev = false
+    for (const r of rows) {
+      if (r.trade_date === prevDate) {
+        anyPrev = true
+        break
+      }
+    }
+    return rows.length > 0 && !anyPrev
+  }, [rows, prevDate])
+
   const [rankModal, setRankModal] = useState<{
     variant: 'buy' | 'sell'
     stock_code: string
     stock_name: string | null
     etfCodes: string[]
   } | null>(null)
+
+  const [maxTradeDate, setMaxTradeDate] = useState<string | null>(null)
+  /** 本地「已按知道了」後強制重算 spotlight */
+  const [spotlightTick, setSpotlightTick] = useState(0)
+
+  useEffect(() => {
+    if (mock || !supabase) {
+      queueMicrotask(() => setMaxTradeDate(null))
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const d = await fetchMaxTradeDate(supabase)
+        if (!cancelled) setMaxTradeDate(d)
+      } catch {
+        if (!cancelled) setMaxTradeDate(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [mock, supabase])
+
+  const spotlight = useMemo(() => {
+    if (mock || loading || missingPrev || topNew.length === 0) return null
+    if (maxTradeDate && effectiveCurrDate !== maxTradeDate) return null
+    if (!maxTradeDate) return null
+    if (readSpotlightSeen().has(effectiveCurrDate)) return null
+    const top = topNew[0]
+    return {
+      stock_code: top.stock_code,
+      stock_name: top.stock_name,
+      etfCount: top.etfCount,
+      tradeDate: effectiveCurrDate,
+    }
+  }, [
+    spotlightTick,
+    mock,
+    loading,
+    missingPrev,
+    topNew,
+    maxTradeDate,
+    effectiveCurrDate,
+  ])
 
   const openRankModal = useCallback(
     (variant: 'buy' | 'sell', stock_code: string, stock_name: string | null) => {
@@ -122,17 +206,6 @@ export default function App() {
   )
 
   const detail: EtfDelta | undefined = deltas.get(selectedEtf)
-
-  const missingPrev = useMemo(() => {
-    let anyPrev = false
-    for (const r of rows) {
-      if (r.trade_date === prevDate) {
-        anyPrev = true
-        break
-      }
-    }
-    return rows.length > 0 && !anyPrev
-  }, [rows, prevDate])
 
   return (
     <div className="app">
@@ -173,10 +246,44 @@ export default function App() {
         </p>
       </header>
 
-      {error && <div className="banner error">{error}</div>}
+        {error && <div className="banner error">{error}</div>}
       {missingPrev && (
         <div className="banner warn">
           資料庫中找不到上一交易日 <strong>{prevDate}</strong> 的快照，無法計算「新增／剔除／差分」。請先完成擷取或改用示範模式。
+        </div>
+      )}
+
+      {spotlight && (
+        <div className="banner spotlight" role="status">
+          <div className="spotlight-inner">
+            <span className="spotlight-badge">更新</span>
+            <span className="spotlight-text">
+              跨 12 檔 · 新納入檔數最多：
+              <strong>
+                {spotlight.stock_code} {spotlight.stock_name ?? ''}
+              </strong>
+              （{spotlight.etfCount} 檔基金）
+            </span>
+            <button
+              type="button"
+              className="btn btn-spotlight"
+              onClick={() =>
+                openRankModal('buy', spotlight.stock_code, spotlight.stock_name)
+              }
+            >
+              查看 ETF
+            </button>
+            <button
+              type="button"
+              className="btn btn-spotlight-secondary"
+              onClick={() => {
+                markSpotlightSeen(spotlight.tradeDate)
+                setSpotlightTick((n) => n + 1)
+              }}
+            >
+              知道了
+            </button>
+          </div>
         </div>
       )}
 

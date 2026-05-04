@@ -213,6 +213,77 @@
   margin-top: 0.85rem;
 }
 
+.banner.spotlight {
+  margin-top: 0.85rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 50%, #fce7f3 100%);
+  border: 1px solid #fda4af;
+  color: #881337;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.12);
+}
+
+.spotlight-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 0.75rem;
+}
+
+.spotlight-badge {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  background: #e11d48;
+  color: #fff;
+}
+
+.spotlight-text {
+  flex: 1 1 12rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.spotlight-text strong {
+  color: #9f1239;
+  font-weight: 700;
+}
+
+.btn-spotlight {
+  padding: 0.45rem 0.85rem;
+  font-size: 0.82rem;
+  background: linear-gradient(135deg, #e11d48, #be123c);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(190, 18, 60, 0.25);
+}
+
+.btn-spotlight:hover {
+  filter: brightness(1.05);
+}
+
+.btn-spotlight-secondary {
+  padding: 0.45rem 0.75rem;
+  font-size: 0.82rem;
+  background: #fff;
+  color: #9f1239;
+  border: 1px solid #fda4af;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-spotlight-secondary:hover {
+  background: #fff5f5;
+}
+
 .section {
   margin-bottom: 2rem;
 }
