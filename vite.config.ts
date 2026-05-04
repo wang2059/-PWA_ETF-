@@ -8,17 +8,31 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['favicon.svg', 'pwa-icon.svg'],
       manifest: {
         name: '台灣主動式 ETF 持股變動',
         short_name: '主動ETF',
         description: '境內主動式 ETF 持股快照與隔日變動',
-        theme_color: '#3b6cff',
+        theme_color: '#2563eb',
         background_color: '#f8fafc',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
         lang: 'zh-Hant-TW',
+        icons: [
+          {
+            src: 'pwa-icon.svg',
+            sizes: '512x512',
+            type: 'image/svg+xml',
+            purpose: 'any',
+          },
+          {
+            src: 'pwa-icon.svg',
+            sizes: '512x512',
+            type: 'image/svg+xml',
+            purpose: 'maskable',
+          },
+        ],
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,svg,woff2}'],
