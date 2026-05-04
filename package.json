@@ -4,8 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "icons": "node scripts/generate-pwa-icons.mjs",
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "node scripts/generate-pwa-icons.mjs && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "ingest": "node scripts/run-ingest.mjs",
@@ -30,6 +31,7 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",
     "vite": "^8.0.10",
-    "vite-plugin-pwa": "^1.1.0"
+    "vite-plugin-pwa": "^1.1.0",
+    "sharp": "^0.34.5"
   }
 }

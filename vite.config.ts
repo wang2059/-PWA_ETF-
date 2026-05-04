@@ -8,10 +8,16 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'pwa-icon.svg'],
+      includeAssets: [
+        'favicon.svg',
+        'pwa-icon.svg',
+        'apple-touch-icon.png',
+        'pwa-192.png',
+        'pwa-512.png',
+      ],
       manifest: {
         name: '台灣主動式 ETF 持股變動',
-        short_name: '主動ETF',
+        short_name: 'ETF',
         description: '境內主動式 ETF 持股快照與隔日變動',
         theme_color: '#2563eb',
         background_color: '#f8fafc',
@@ -21,21 +27,27 @@ export default defineConfig({
         lang: 'zh-Hant-TW',
         icons: [
           {
-            src: 'pwa-icon.svg',
-            sizes: '512x512',
-            type: 'image/svg+xml',
+            src: 'pwa-192.png',
+            sizes: '192x192',
+            type: 'image/png',
             purpose: 'any',
           },
           {
-            src: 'pwa-icon.svg',
+            src: 'pwa-512.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
+            type: 'image/png',
+            purpose: 'any',
+          },
+          {
+            src: 'pwa-512.png',
+            sizes: '512x512',
+            type: 'image/png',
             purpose: 'maskable',
           },
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,svg,woff2}'],
+        globPatterns: ['**/*.{js,css,html,ico,svg,png,woff2}'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,

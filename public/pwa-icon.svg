@@ -1,13 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ETF ¡">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ETF">
   <defs>
     <linearGradient id="pwa-bg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#2563eb" />
       <stop offset="100%" stop-color="#0ea5e9" />
     </linearGradient>
   </defs>
-  <!-- ÿHÒéb)¼ Android maskable Á -->
   <rect width="512" height="512" rx="112" fill="url(#pwa-bg)" />
-  <!-- !ÒÀ + ¨âÚÍ¨X	 -->
   <g fill="#ffffff" fill-opacity="0.95">
     <rect x="132" y="288" width="60" height="128" rx="14" />
     <rect x="226" y="232" width="60" height="184" rx="14" />
