@@ -1,0 +1,39 @@
+# 每日擷取 MoneyDJ 持股 → Supabase（僅後端，不包含 PWA 建置）
+#
+# 台灣時間 19:00 = UTC 11:00（台灣 UTC+8，無夏令時間）
+# GitHub cron 使用 UTC，故為：0 11 * * *
+#
+name: Ingest ETF holdings
+
+on:
+  schedule:
+    - cron: '0 11 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ingest-holdings
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ingest
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          INGEST_DELAY_MS: '900'
+        run: node scripts/run-ingest.mjs
