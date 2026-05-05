@@ -133,10 +133,35 @@ export default function App() {
     [rows, prevDate, effectiveCurrDate],
   )
 
+  /** 當日快照缺失：上一日有資料、但當日（effectiveCurrDate）完全沒有任何列 */
+  const missingCurrEtfs = useMemo(() => {
+    const out: string[] = []
+    for (const [code, g] of byEtf) {
+      if (g.prev.length > 0 && g.curr.length === 0) out.push(code)
+    }
+    out.sort()
+    return out
+  }, [byEtf])
+  const missingCurrSet = useMemo(() => new Set(missingCurrEtfs), [missingCurrEtfs])
+
   const deltas = useMemo(() => computeAllEtfDeltas(byEtf), [byEtf])
-  const { topNew, topRemoved } = useMemo(() => aggregateNewAndRemoved(deltas), [deltas])
-  const buyEtfsByStock = useMemo(() => etfCodesByStockForAdded(deltas), [deltas])
-  const sellEtfsByStock = useMemo(() => etfCodesByStockForRemoved(deltas), [deltas])
+
+  /** 排行用：排除「當日快照缺失」ETF，避免誤判大量「完全剔除」 */
+  const deltasForRank = useMemo(() => {
+    if (missingCurrEtfs.length === 0) return deltas
+    const m = new Map<string, EtfDelta>()
+    for (const [code, d] of deltas) {
+      if (!missingCurrSet.has(code)) m.set(code, d)
+    }
+    return m
+  }, [deltas, missingCurrEtfs.length, missingCurrSet])
+
+  const { topNew, topRemoved } = useMemo(
+    () => aggregateNewAndRemoved(deltasForRank),
+    [deltasForRank],
+  )
+  const buyEtfsByStock = useMemo(() => etfCodesByStockForAdded(deltasForRank), [deltasForRank])
+  const sellEtfsByStock = useMemo(() => etfCodesByStockForRemoved(deltasForRank), [deltasForRank])
 
   const missingPrev = useMemo(() => {
     let anyPrev = false
@@ -269,6 +294,7 @@ export default function App() {
   )
 
   const detail: EtfDelta | undefined = deltas.get(selectedEtf)
+  const selectedMissingCurr = missingCurrSet.has(selectedEtf)
 
   return (
     <div className="app">
@@ -320,6 +346,12 @@ export default function App() {
             與其前一交易日（<strong>{prevDate}</strong>）持股之差異分析。
           </div>
         )}
+        {missingCurrEtfs.length > 0 && (
+          <div className="banner warn">
+            下列 ETF 在 <strong>{effectiveCurrDate}</strong> 缺少快照（可能來源尚未更新），已自動排除於「完全剔除」排行：
+            <strong style={{ marginLeft: 6 }}>{missingCurrEtfs.join('、')}</strong>
+          </div>
+        )}
         <p className="meta">
           {mock ? (
             <>目前為 <strong>示範資料</strong>。設定 <code>VITE_SUPABASE_URL</code> 可改連雲端。</>
@@ -333,6 +365,11 @@ export default function App() {
       {missingPrev && (
         <div className="banner warn">
           資料庫中找不到上一交易日 <strong>{prevDate}</strong> 的快照，無法計算「新增／剔除／差分」。請先完成擷取或改用示範模式。
+        </div>
+      )}
+      {selectedMissingCurr && (
+        <div className="banner warn">
+          <strong>{selectedEtf}</strong> 在 <strong>{effectiveCurrDate}</strong> 沒有任何快照列；下方「剔除」多半是資料缺漏造成的誤判（已排除於跨 ETF 的「完全剔除」排行）。
         </div>
       )}
 
