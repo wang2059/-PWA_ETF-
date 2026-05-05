@@ -163,6 +163,8 @@ export default function App() {
   const reloadRef = useRef(reload)
   reloadRef.current = reload
 
+  const userTouchedDateRef = useRef(false)
+
   const lastSeenMaxTradeDateRef = useRef<string | null>(null)
   useEffect(() => {
     lastSeenMaxTradeDateRef.current = maxTradeDate
@@ -182,7 +184,12 @@ export default function App() {
         const prevMax = lastSeenMaxTradeDateRef.current
         lastSeenMaxTradeDateRef.current = d
         setMaxTradeDate(d)
-        if (prevMax !== null && d > prevMax) {
+        // 若資料庫出現更新日（trade_date 推進），自動切到最新日期並重新載入
+        // 但若使用者已手動選過日期，則不強制改掉他選的日期，只做背景重載。
+        if (prevMax === null || d > prevMax) {
+          if (!userTouchedDateRef.current && d !== pickedDate) {
+            setPickedDate(d)
+          }
           await reloadRef.current()
         }
       } catch {
@@ -275,7 +282,10 @@ export default function App() {
             <input
               type="date"
               value={pickedDate}
-              onChange={(e) => setPickedDate(e.target.value)}
+              onChange={(e) => {
+                userTouchedDateRef.current = true
+                setPickedDate(e.target.value)
+              }}
             />
           </label>
           <button type="button" className="btn" onClick={() => void reload()} disabled={loading}>

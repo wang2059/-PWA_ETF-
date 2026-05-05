@@ -17,5 +17,6 @@ export function taipeiMinutesSinceMidnight(now = new Date()): number {
  */
 export function isEveningIngestPollWindow(now = new Date()): boolean {
   const m = taipeiMinutesSinceMidnight(now)
-  return m >= 19 * 60 + 55 && m <= 21 * 60 + 5
+  // 拉長到晚間，避免 ingest/部署延遲導致錯過自動刷新
+  return m >= 19 * 60 + 55 && m <= 23 * 60 + 30
 }
