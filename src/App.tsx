@@ -26,6 +26,12 @@ function todayISO(): string {
   return `${y}-${m}-${day}`
 }
 
+/** 初次進入預設報表日：上一個交易日（相對行事曆今日先正規化成交易日再往前提一日），以免「當日」快照尚未齊全時誤判大量剔除 */
+function defaultPickedReportDate(): string {
+  const todayOrPriorTrading = normalizeToTradingDay(todayISO())
+  return previousTradingDay(todayOrPriorTrading)
+}
+
 const SPOTLIGHT_KEY = 'etf_spotlight_seen_v1'
 
 function readSpotlightSeen(): Set<string> {
@@ -54,8 +60,8 @@ export default function App() {
   const supabase = useMemo(() => getBrowserSupabase(), [])
   const mock = useMockData()
 
-  /** 使用者在日曆選的日期（可為休市日） */
-  const [pickedDate, setPickedDate] = useState(() => todayISO())
+  /** 使用者在日曆選的日期（可為休市日）；預設為上一個交易日以利資料齊備後再比對 */
+  const [pickedDate, setPickedDate] = useState(() => defaultPickedReportDate())
   /** 實際用來載入快照的「當日」＝最近一個交易日（≤ 選定日） */
   const effectiveCurrDate = useMemo(
     () => normalizeToTradingDay(pickedDate),
