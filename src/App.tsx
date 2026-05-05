@@ -98,6 +98,8 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedEtf, setSelectedEtf] = useState<string>(ETF_CODES[0] ?? '00980A')
+  const [stockQuery, setStockQuery] = useState('')
+  const [pickedStockCode, setPickedStockCode] = useState<string | null>(null)
 
   // 防止非同步競態：只允許最新一次載入更新畫面
   const loadSeqRef = useRef(0)
@@ -138,6 +140,97 @@ export default function App() {
     () => groupByEtfAndDate(rows, prevDate, effectiveCurrDate),
     [rows, prevDate, effectiveCurrDate],
   )
+
+  const currRows = useMemo(
+    () => rows.filter((r) => r.trade_date === effectiveCurrDate),
+    [rows, effectiveCurrDate],
+  )
+  const prevRows = useMemo(() => rows.filter((r) => r.trade_date === prevDate), [rows, prevDate])
+
+  const prevByEtfStock = useMemo(() => {
+    const m = new Map<string, Map<string, HoldingRow>>()
+    for (const r of prevRows) {
+      let sub = m.get(r.etf_code)
+      if (!sub) {
+        sub = new Map()
+        m.set(r.etf_code, sub)
+      }
+      sub.set(r.stock_code, r)
+    }
+    return m
+  }, [prevRows])
+
+  const stockMatches = useMemo(() => {
+    const q = stockQuery.trim()
+    if (q.length === 0) return []
+    const qUpper = q.toUpperCase()
+    const out = new Map<string, { stock_code: string; stock_name: string }>()
+    for (const r of currRows) {
+      const codeHit = r.stock_code.includes(qUpper)
+      const name = r.stock_name ?? ''
+      const nameHit = name.includes(q) || name.includes(qUpper)
+      if (!codeHit && !nameHit) continue
+      if (!out.has(r.stock_code)) {
+        out.set(r.stock_code, {
+          stock_code: r.stock_code,
+          stock_name: r.stock_name ?? '—',
+        })
+      }
+      if (out.size >= 20) break
+    }
+    return [...out.values()].sort((a, b) => a.stock_code.localeCompare(b.stock_code))
+  }, [currRows, stockQuery])
+
+  useEffect(() => {
+    const q = stockQuery.trim()
+    if (q.length === 0) {
+      setPickedStockCode(null)
+      return
+    }
+    const qUpper = q.toUpperCase()
+    const exact = stockMatches.find((m) => m.stock_code === qUpper)
+    if (exact) {
+      setPickedStockCode(exact.stock_code)
+      return
+    }
+    if (stockMatches.length === 1) {
+      setPickedStockCode(stockMatches[0]!.stock_code)
+    }
+  }, [stockMatches, stockQuery])
+
+  const pickedStockInfo = useMemo(() => {
+    if (!pickedStockCode) return null
+    const hit = currRows.find((r) => r.stock_code === pickedStockCode)
+    return hit
+      ? { stock_code: pickedStockCode, stock_name: hit.stock_name ?? '—' }
+      : { stock_code: pickedStockCode, stock_name: '—' }
+  }, [currRows, pickedStockCode])
+
+  const pickedStockHoldings = useMemo(() => {
+    if (!pickedStockCode) return []
+    const out: {
+      etf_code: string
+      etf_name: string
+      weight_pct: number | null
+      deltaLots: number | null
+    }[] = []
+    for (const r of currRows) {
+      if (r.stock_code !== pickedStockCode) continue
+      const prow = prevByEtfStock.get(r.etf_code)?.get(r.stock_code)
+      const currLots = toLots(r.shares)
+      const prevLots = prow ? toLots(prow.shares) : 0
+      const deltaLots =
+        currLots === null ? null : currLots - (prevLots === null ? 0 : prevLots)
+      out.push({
+        etf_code: r.etf_code,
+        etf_name: etfFundName(r.etf_code),
+        weight_pct: r.weight_pct,
+        deltaLots,
+      })
+    }
+    out.sort((a, b) => (b.weight_pct ?? -1) - (a.weight_pct ?? -1))
+    return out
+  }, [currRows, pickedStockCode, prevByEtfStock])
 
   const anyCurrRows = useMemo(
     () => rows.some((r) => r.trade_date === effectiveCurrDate),
@@ -521,16 +614,27 @@ export default function App() {
       <section className="section detail">
         <div className="detail-head">
           <h2 className="section-title">單檔 ETF 明細</h2>
-          <label className="field inline">
-            <span>選擇 ETF</span>
-            <select value={selectedEtf} onChange={(e) => setSelectedEtf(e.target.value)}>
-              {ETF_ALLOWLIST.map((e) => (
-                <option key={e.code} value={e.code}>
-                  {e.code} {e.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="detail-controls">
+            <label className="field inline">
+              <span>個股搜尋</span>
+              <input
+                type="text"
+                value={stockQuery}
+                placeholder="輸入代碼或名稱（例：2330 / 台積）"
+                onChange={(e) => setStockQuery(e.target.value)}
+              />
+            </label>
+            <label className="field inline">
+              <span>選擇 ETF</span>
+              <select value={selectedEtf} onChange={(e) => setSelectedEtf(e.target.value)}>
+                {ETF_ALLOWLIST.map((e) => (
+                  <option key={e.code} value={e.code}>
+                    {e.code} {e.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         </div>
 
         {loading ? (
@@ -571,6 +675,59 @@ export default function App() {
         ) : (
           <p className="muted">無明細</p>
         )}
+
+        <div className="stock-search">
+          {stockQuery.trim().length > 0 && stockMatches.length > 1 && (
+            <div className="stock-search__matches">
+              <span className="muted">符合：</span>
+              {stockMatches.slice(0, 10).map((m) => (
+                <button
+                  key={m.stock_code}
+                  type="button"
+                  className={`chip ${pickedStockCode === m.stock_code ? 'chip--active' : ''}`}
+                  onClick={() => setPickedStockCode(m.stock_code)}
+                >
+                  <span className="mono">{m.stock_code}</span> {m.stock_name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {pickedStockInfo && (
+            <div className="panel stock-panel">
+              <h3 className="panel-title">
+                個股持有一覽：<span className="mono">{pickedStockInfo.stock_code}</span>{' '}
+                {pickedStockInfo.stock_name}
+              </h3>
+              {pickedStockHoldings.length === 0 ? (
+                <p className="muted">當日（{effectiveCurrDate}）沒有任何 ETF 持有此股</p>
+              ) : (
+                <div className="table-wrap">
+                  <table className="stock-table">
+                    <thead>
+                      <tr>
+                        <th>ETF</th>
+                        <th>基金</th>
+                        <th className="num">權重（當日）</th>
+                        <th className="num">Δ張（當日-前日）</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pickedStockHoldings.map((r) => (
+                        <tr key={r.etf_code}>
+                          <td className="mono">{r.etf_code}</td>
+                          <td>{r.etf_name}</td>
+                          <td className="num">{formatWeightPct(r.weight_pct)}</td>
+                          <td className="num">{formatLotsDelta(r.deltaLots) ?? '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </section>
 
       <footer className="footer">
