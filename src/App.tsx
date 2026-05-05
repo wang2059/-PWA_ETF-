@@ -133,15 +133,22 @@ export default function App() {
     [rows, prevDate, effectiveCurrDate],
   )
 
+  const anyCurrRows = useMemo(
+    () => rows.some((r) => r.trade_date === effectiveCurrDate),
+    [rows, effectiveCurrDate],
+  )
+
   /** 當日快照缺失：上一日有資料、但當日（effectiveCurrDate）完全沒有任何列 */
   const missingCurrEtfs = useMemo(() => {
+    // 若整體「當日」完全沒有任何列（代表資料庫尚未更新/讀取不到當日），不要把各 ETF 誤判為「缺快照」
+    if (!anyCurrRows) return []
     const out: string[] = []
     for (const [code, g] of byEtf) {
       if (g.prev.length > 0 && g.curr.length === 0) out.push(code)
     }
     out.sort()
     return out
-  }, [byEtf])
+  }, [anyCurrRows, byEtf])
   const missingCurrSet = useMemo(() => new Set(missingCurrEtfs), [missingCurrEtfs])
 
   const deltas = useMemo(() => computeAllEtfDeltas(byEtf), [byEtf])
@@ -294,7 +301,7 @@ export default function App() {
   )
 
   const detail: EtfDelta | undefined = deltas.get(selectedEtf)
-  const selectedMissingCurr = missingCurrSet.has(selectedEtf)
+  const selectedMissingCurr = anyCurrRows && missingCurrSet.has(selectedEtf)
 
   return (
     <div className="app">
@@ -344,6 +351,11 @@ export default function App() {
             您選擇的日期（<strong>{pickedDate}</strong>）為休市日；下列為
             <strong>最近交易日 {effectiveCurrDate}</strong>
             與其前一交易日（<strong>{prevDate}</strong>）持股之差異分析。
+          </div>
+        )}
+        {!loading && rows.length > 0 && !anyCurrRows && (
+          <div className="banner warn">
+            目前讀取不到 <strong>{effectiveCurrDate}</strong> 的任何快照列（資料庫尚未更新或權限/快取造成延遲）。因此不顯示「當日缺漏 ETF」判定，請稍後再按一次「重新載入」或點「切換到最新」。
           </div>
         )}
         {missingCurrEtfs.length > 0 && (
