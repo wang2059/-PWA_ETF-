@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { buildMockSnapshots } from './data/mockSnapshots'
 import { ETF_ALLOWLIST, ETF_CODES, etfFundName, etfLabel } from './lib/etfAllowlist'
@@ -8,6 +8,7 @@ import {
   etfCodesByStockForRemoved,
 } from './lib/aggregate'
 import { computeAllEtfDeltas } from './lib/delta'
+import { isEveningIngestPollWindow } from './lib/taipeiTime'
 import { normalizeToTradingDay, previousTradingDay } from './lib/tradingDay'
 import type { EtfDelta, HoldingRow } from './lib/types'
 import {
@@ -158,6 +159,51 @@ export default function App() {
   const [maxTradeDate, setMaxTradeDate] = useState<string | null>(null)
   /** 本地「已按知道了」後強制重算 spotlight */
   const [spotlightTick, setSpotlightTick] = useState(0)
+
+  const reloadRef = useRef(reload)
+  reloadRef.current = reload
+
+  const lastSeenMaxTradeDateRef = useRef<string | null>(null)
+  useEffect(() => {
+    lastSeenMaxTradeDateRef.current = maxTradeDate
+  }, [maxTradeDate])
+
+  /** 台灣時間約 20:00 ingest 後：輪詢資料庫最新 trade_date，若有推進則自動重新載入（等同按「重新載入」） */
+  useEffect(() => {
+    if (mock || !supabase) return undefined
+
+    let cancelled = false
+
+    async function maybeRefreshAfterIngest() {
+      if (cancelled || !isEveningIngestPollWindow()) return
+      try {
+        const d = await fetchMaxTradeDate(supabase)
+        if (cancelled || !d) return
+        const prevMax = lastSeenMaxTradeDateRef.current
+        lastSeenMaxTradeDateRef.current = d
+        setMaxTradeDate(d)
+        if (prevMax !== null && d > prevMax) {
+          await reloadRef.current()
+        }
+      } catch {
+        /* 略過輪詢錯誤 */
+      }
+    }
+
+    const id = setInterval(() => void maybeRefreshAfterIngest(), 60_000)
+    void maybeRefreshAfterIngest()
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void maybeRefreshAfterIngest()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    return () => {
+      cancelled = true
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [mock, supabase])
 
   useEffect(() => {
     if (mock || !supabase) {
