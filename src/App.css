@@ -620,6 +620,29 @@
   min-width: 0;
 }
 
+.detail-card__meta {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.15rem;
+  padding-left: 0.5rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.detail-card__weight {
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.detail-card__delta {
+  font-size: 0.72rem;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
 .detail-card__code {
   font-size: 0.98rem;
   font-weight: 800;

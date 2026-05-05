@@ -33,6 +33,25 @@ function defaultPickedReportDate(): string {
   return previousTradingDay(todayOrPriorTrading)
 }
 
+function formatWeightPct(v: number | null | undefined): string {
+  if (v === null || v === undefined || Number.isNaN(v)) return '—'
+  return `${v.toFixed(2)}%`
+}
+
+function toLots(shares: number | null | undefined): number | null {
+  if (shares === null || shares === undefined || Number.isNaN(shares)) return null
+  return shares / 1000
+}
+
+function formatLotsDelta(deltaLots: number | null): string | null {
+  if (deltaLots === null || Number.isNaN(deltaLots) || deltaLots === 0) return null
+  const sign = deltaLots > 0 ? '+' : ''
+  // 台股通常為整張，若有零股則保留兩位
+  const abs = Math.abs(deltaLots)
+  const s = Number.isInteger(abs) ? abs.toFixed(0) : abs.toFixed(2)
+  return `Δ ${sign}${deltaLots < 0 ? '-' : ''}${s}張`
+}
+
 const SPOTLIGHT_KEY = 'etf_spotlight_seen_v1'
 
 function readSpotlightSeen(): Set<string> {
@@ -289,6 +308,65 @@ export default function App() {
 
   const detail: EtfDelta | undefined = deltas.get(selectedEtf)
   const selectedMissingCurr = anyCurrRows && missingCurrSet.has(selectedEtf)
+  const selectedGroup = byEtf.get(selectedEtf)
+
+  const detailDecks = useMemo(() => {
+    const prev = selectedGroup?.prev ?? []
+    const curr = selectedGroup?.curr ?? []
+
+    const pm = new Map(prev.map((r) => [r.stock_code, r] as const))
+    const cm = new Map(curr.map((r) => [r.stock_code, r] as const))
+
+    const added: DetailRow[] = []
+    const removed: DetailRow[] = []
+    const stillHeld: DetailRow[] = []
+
+    for (const [code, crow] of cm) {
+      const prow = pm.get(code)
+      const currLots = toLots(crow.shares)
+      const prevLots = prow ? toLots(prow.shares) : 0
+      const deltaLots =
+        currLots === null ? null : currLots - (prevLots === null ? 0 : prevLots)
+
+      if (!prow) {
+        added.push({
+          stock_code: code,
+          stock_name: crow.stock_name ?? '—',
+          weight_pct: crow.weight_pct,
+          deltaLots,
+        })
+      } else {
+        stillHeld.push({
+          stock_code: code,
+          stock_name: crow.stock_name ?? prow.stock_name ?? '—',
+          weight_pct: crow.weight_pct,
+          deltaLots,
+        })
+      }
+    }
+
+    for (const [code, prow] of pm) {
+      if (cm.has(code)) continue
+      const prevLots = toLots(prow.shares)
+      const deltaLots = prevLots === null ? null : 0 - prevLots
+      removed.push({
+        stock_code: code,
+        stock_name: prow.stock_name ?? '—',
+        weight_pct: null, // 當日不存在，權重以當日為準 → 顯示 —
+        deltaLots,
+      })
+    }
+
+    const byWeightDesc = (a: DetailRow, b: DetailRow) =>
+      (b.weight_pct ?? -1) - (a.weight_pct ?? -1)
+
+    added.sort(byWeightDesc)
+    stillHeld.sort(byWeightDesc)
+    // removed 無當日權重，用前日權重排序比較直覺（可之後再調）
+    removed.sort((a, b) => (pm.get(b.stock_code)?.weight_pct ?? -1) - (pm.get(a.stock_code)?.weight_pct ?? -1))
+
+    return { added, removed, stillHeld }
+  }, [selectedGroup])
 
   return (
     <div className="app">
@@ -466,10 +544,7 @@ export default function App() {
               </h3>
               <DetailStockDeck
                 variant="buy"
-                rows={detail.added.map((r) => ({
-                  stock_code: r.stock_code,
-                  stock_name: r.stock_name ?? '—',
-                }))}
+                rows={detailDecks.added}
                 emptyHint="無新增"
               />
             </div>
@@ -480,10 +555,7 @@ export default function App() {
               </h3>
               <DetailStockDeck
                 variant="sell"
-                rows={detail.removed.map((r) => ({
-                  stock_code: r.stock_code,
-                  stock_name: r.stock_name ?? '—',
-                }))}
+                rows={detailDecks.removed}
                 emptyHint="無剔除"
               />
             </div>
@@ -491,10 +563,7 @@ export default function App() {
               <h3 className="panel-title">持續持有（兩日皆在成分中）</h3>
               <DetailStockDeck
                 variant="neutral"
-                rows={detail.stillHeld.map((r) => ({
-                  stock_code: r.stock_code,
-                  stock_name: r.stock_name ?? '—',
-                }))}
+                rows={detailDecks.stillHeld}
                 emptyHint="無資料"
               />
             </div>
@@ -673,13 +742,22 @@ function StockEtfModal({
   )
 }
 
+type DetailRow = {
+  stock_code: string
+  stock_name: string
+  /** 當日（資料基準日）權重，百分比 */
+  weight_pct: number | null
+  /** 與前一日相較的張數變化（1 張 = 1000 股）；無資料則為 null */
+  deltaLots: number | null
+}
+
 function DetailStockDeck({
   variant,
   rows,
   emptyHint,
 }: {
   variant: 'buy' | 'sell' | 'neutral'
-  rows: { stock_code: string; stock_name: string }[]
+  rows: DetailRow[]
   emptyHint: string
 }) {
   if (rows.length === 0) {
@@ -710,6 +788,12 @@ function DetailStockDeck({
                 <span className="detail-card__code">{r.stock_code}</span>
                 <span className="detail-card__name">{r.stock_name}</span>
               </div>
+              <div className="detail-card__meta">
+                <span className="detail-card__weight">{formatWeightPct(r.weight_pct)}</span>
+                {formatLotsDelta(r.deltaLots) && (
+                  <span className="detail-card__delta">{formatLotsDelta(r.deltaLots)}</span>
+                )}
+              </div>
             </li>
           )
         }
@@ -731,6 +815,16 @@ function DetailStockDeck({
               <span className="detail-card__name" style={{ color: pal.nameColor }}>
                 {r.stock_name}
               </span>
+            </div>
+            <div className="detail-card__meta">
+              <span className="detail-card__weight" style={{ color: pal.codeColor }}>
+                {formatWeightPct(r.weight_pct)}
+              </span>
+              {formatLotsDelta(r.deltaLots) && (
+                <span className="detail-card__delta" style={{ color: pal.nameColor }}>
+                  {formatLotsDelta(r.deltaLots)}
+                </span>
+              )}
             </div>
           </li>
         )
