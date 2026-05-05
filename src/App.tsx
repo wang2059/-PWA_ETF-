@@ -8,7 +8,7 @@ import {
   etfCodesByStockForRemoved,
 } from './lib/aggregate'
 import { computeAllEtfDeltas } from './lib/delta'
-import { isEveningIngestPollWindow } from './lib/taipeiTime'
+import { isAfterTaipeiIngestTime, isEveningIngestPollWindow } from './lib/taipeiTime'
 import { normalizeToTradingDay, previousTradingDay } from './lib/tradingDay'
 import type { EtfDelta, HoldingRow } from './lib/types'
 import {
@@ -222,6 +222,10 @@ export default function App() {
       try {
         const d = await fetchMaxTradeDate(supabase)
         if (!cancelled) setMaxTradeDate(d)
+        // 台灣 20:00 之後：若 DB 已有更新日且使用者尚未手動選日期，直接切到最新
+        if (!cancelled && d && isAfterTaipeiIngestTime() && !userTouchedDateRef.current) {
+          if (d !== pickedDate) setPickedDate(d)
+        }
       } catch {
         if (!cancelled) setMaxTradeDate(null)
       }
@@ -229,7 +233,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [mock, supabase])
+  }, [mock, supabase, pickedDate])
 
   const spotlight = useMemo(() => {
     if (mock || loading || missingPrev || topNew.length === 0) return null
@@ -292,6 +296,23 @@ export default function App() {
             重新載入
           </button>
         </div>
+        {maxTradeDate && effectiveCurrDate !== maxTradeDate && (
+          <div className="banner info">
+            資料庫已有較新資料日 <strong>{maxTradeDate}</strong>。
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                userTouchedDateRef.current = true
+                setPickedDate(maxTradeDate)
+              }}
+              disabled={loading}
+              style={{ marginLeft: 10 }}
+            >
+              切換到最新
+            </button>
+          </div>
+        )}
         {isNonTradingPick && (
           <div className="banner info">
             您選擇的日期（<strong>{pickedDate}</strong>）為休市日；下列為

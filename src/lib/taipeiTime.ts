@@ -20,3 +20,8 @@ export function isEveningIngestPollWindow(now = new Date()): boolean {
   // 拉長到晚間，避免 ingest/部署延遲導致錯過自動刷新
   return m >= 19 * 60 + 55 && m <= 23 * 60 + 30
 }
+
+/** 台灣時間已過每日 ingest 時刻（20:00） */
+export function isAfterTaipeiIngestTime(now = new Date()): boolean {
+  return taipeiMinutesSinceMidnight(now) >= 20 * 60
+}
