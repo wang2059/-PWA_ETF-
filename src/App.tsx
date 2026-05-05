@@ -220,8 +220,11 @@ export default function App() {
         // 但若使用者已手動選過日期，則不強制改掉他選的日期，只做背景重載。
         if (prevMax === null || d > prevMax) {
           if (!userTouchedDateRef.current && d !== pickedDate) {
+            // 只切日期，讓主載入 effect 依新日期抓資料，避免先用舊日期 reload 造成畫面短暫跳動
             setPickedDate(d)
+            return
           }
+          // 若不切日期（使用者已選日期或已在最新），才做背景重抓
           await reloadRef.current()
         }
       } catch {
