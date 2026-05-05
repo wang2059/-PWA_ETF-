@@ -80,53 +80,40 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [selectedEtf, setSelectedEtf] = useState<string>(ETF_CODES[0] ?? '00980A')
 
-  useEffect(() => {
-    let cancelled = false
+  // 防止非同步競態：只允許最新一次載入更新畫面
+  const loadSeqRef = useRef(0)
+  const activeLoadRef = useRef(0)
 
-    async function run() {
-      setLoading(true)
-      setError(null)
-      try {
-        let data: HoldingRow[]
-        if (mock || !supabase) {
-          data = buildMockSnapshots(prevDate, effectiveCurrDate)
-        } else {
-          data = await fetchSnapshotsForDates(supabase, [prevDate, effectiveCurrDate])
-        }
-        if (!cancelled) setRows(data)
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : '載入失敗')
-          setRows([])
-        }
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
+  const loadSnapshots = useCallback(async (): Promise<void> => {
+    const seq = (loadSeqRef.current += 1)
+    activeLoadRef.current = seq
 
-    void run()
-    return () => {
-      cancelled = true
-    }
-  }, [mock, supabase, prevDate, effectiveCurrDate])
-
-  async function reload() {
     setLoading(true)
     setError(null)
     try {
-      if (mock || !supabase) {
-        setRows(buildMockSnapshots(prevDate, effectiveCurrDate))
-      } else {
-        const data = await fetchSnapshotsForDates(supabase, [prevDate, effectiveCurrDate])
-        setRows(data)
-      }
+      const data =
+        mock || !supabase
+          ? buildMockSnapshots(prevDate, effectiveCurrDate)
+          : await fetchSnapshotsForDates(supabase, [prevDate, effectiveCurrDate])
+
+      if (activeLoadRef.current !== seq) return
+      setRows(data)
     } catch (e) {
+      if (activeLoadRef.current !== seq) return
       setError(e instanceof Error ? e.message : '載入失敗')
       setRows([])
     } finally {
+      if (activeLoadRef.current !== seq) return
       setLoading(false)
     }
-  }
+  }, [mock, supabase, prevDate, effectiveCurrDate])
+
+  useEffect(() => {
+    void loadSnapshots()
+  }, [loadSnapshots])
+
+  const reloadRef = useRef(loadSnapshots)
+  reloadRef.current = loadSnapshots
 
   const byEtf = useMemo(
     () => groupByEtfAndDate(rows, prevDate, effectiveCurrDate),
@@ -191,9 +178,6 @@ export default function App() {
   const [maxTradeDate, setMaxTradeDate] = useState<string | null>(null)
   /** 本地「已按知道了」後強制重算 spotlight */
   const [spotlightTick, setSpotlightTick] = useState(0)
-
-  const reloadRef = useRef(reload)
-  reloadRef.current = reload
 
   const userTouchedDateRef = useRef(false)
 
@@ -328,7 +312,7 @@ export default function App() {
               }}
             />
           </label>
-          <button type="button" className="btn" onClick={() => void reload()} disabled={loading}>
+          <button type="button" className="btn" onClick={() => void loadSnapshots()} disabled={loading}>
             重新載入
           </button>
         </div>
