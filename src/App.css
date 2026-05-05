@@ -604,12 +604,12 @@
 }
 
 .detail-card--neutral {
-  background: #fafbfc;
-  border-color: #e8ecf1;
+  background: #ecf8ff;
+  border-color: #cfefff;
 }
 
 .detail-card__bar--neutral {
-  background: linear-gradient(180deg, #94a3b8, #cbd5e1);
+  background: linear-gradient(180deg, #38bdf8, #a5f3fc);
 }
 
 .detail-card__body {
