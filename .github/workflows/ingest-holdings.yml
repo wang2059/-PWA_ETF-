@@ -1,13 +1,18 @@
 # 每日擷取 MoneyDJ 持股 → Supabase（僅後端，不包含 PWA 建置）
 #
 # 台灣時間 20:00 = UTC 12:00（台灣 UTC+8，無夏令時間；略晚以配合各投信上稿）
-# GitHub cron 使用 UTC，故為：0 12 * * *
+# GitHub cron 使用 UTC。排程偶爾可能延遲/漏跑，因此同晚做多次重試：
+# - 台灣 20:00 = UTC 12:00 → 0 12 * * *
+# - 台灣 20:20 = UTC 12:20 → 20 12 * * *
+# - 台灣 20:40 = UTC 12:40 → 40 12 * * *
 #
 name: Ingest ETF holdings
 
 on:
   schedule:
     - cron: '0 12 * * *'
+    - cron: '20 12 * * *'
+    - cron: '40 12 * * *'
   workflow_dispatch:
 
 concurrency:
