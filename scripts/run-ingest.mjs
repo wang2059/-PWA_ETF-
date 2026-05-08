@@ -42,7 +42,8 @@ loadEnvIngest()
 
 import { createClient } from '@supabase/supabase-js'
 import { ETF_CODES } from './etf-codes.mjs'
-import { fetchMoneydjPortfolio } from './providers/moneydj.mjs'
+import { runIngestHealthChecks } from './lib/ingest-health.mjs'
+import { fetchPortfolioOfficialFirst } from './providers/orchestrator.mjs'
 
 const dryRun = process.argv.includes('--dry-run')
 const etfArg = process.argv.find((a) => a.startsWith('--etf='))
@@ -81,11 +82,12 @@ async function main() {
   for (let i = 0; i < codes.length; i++) {
     const etf = codes[i]
     try {
-      const data = await fetchMoneydjPortfolio(etf)
-      const { trade_date, rows, source_url } = data
+      const data = await fetchPortfolioOfficialFirst(etf)
+      const { trade_date, rows, source_display } = data
+      const srcTag = data.used_fallback ? '（MoneyDJ fallback）' : ''
 
       console.log(
-        `[${i + 1}/${codes.length}] ${etf} 資料日 ${trade_date ?? '?'}｜${rows.length} 檔成分`,
+        `[${i + 1}/${codes.length}] ${etf} 資料日 ${trade_date ?? '?'}｜${rows.length} 檔成分${srcTag}`,
       )
 
       if (!trade_date) {
@@ -121,7 +123,7 @@ async function main() {
         market_value_twd: null,
         shares: r.shares,
         weight_pct: r.weight_pct,
-        source: source_url,
+        source: source_display,
       }))
 
       const chunk = 300
@@ -142,6 +144,19 @@ async function main() {
   }
 
   console.log(`完成：成功 ${ok}，失敗 ${fail}`)
+
+  if (!dryRun && supabase && ok > 0) {
+    try {
+      const health = await runIngestHealthChecks(supabase, codes)
+      if (health.errors.length > 0) {
+        for (const e of health.errors) console.error(`[健康檢查] 錯誤：${e}`)
+        process.exit(1)
+      }
+    } catch (e) {
+      console.warn('[健康檢查] 略過：', e instanceof Error ? e.message : e)
+    }
+  }
+
   process.exit(fail > 0 ? 1 : 0)
 }
 

@@ -1,0 +1,77 @@
+{
+  "00980A": {
+    "issuer": "野村投信",
+    "pilot": true,
+    "driver": "none",
+    "csvUrl": null,
+    "notes": "試點：補上官網可下載之 UTF-8 CSV 後改 driver=csv_url"
+  },
+  "00981A": {
+    "issuer": "統一投信",
+    "pilot": true,
+    "driver": "none",
+    "csvUrl": null,
+    "notes": "試點：補上 csvUrl 後啟用官方優先"
+  },
+  "00982A": {
+    "issuer": "群益投信",
+    "pilot": false,
+    "driver": "none",
+    "csvUrl": null
+  },
+  "00985A": {
+    "issuer": "野村投信",
+    "pilot": false,
+    "driver": "none",
+    "csvUrl": null
+  },
+  "00986A": {
+    "issuer": "台新投信",
+    "pilot": false,
+    "driver": "none",
+    "csvUrl": null
+  },
+  "00987A": {
+    "issuer": "台新投信",
+    "pilot": false,
+    "driver": "none",
+    "csvUrl": null
+  },
+  "00991A": {
+    "issuer": "復華投信",
+    "pilot": false,
+    "driver": "none",
+    "csvUrl": null
+  },
+  "00992A": {
+    "issuer": "群益投信",
+    "pilot": false,
+    "driver": "none",
+    "csvUrl": null
+  },
+  "00993A": {
+    "issuer": "安聯投信",
+    "pilot": false,
+    "driver": "none",
+    "csvUrl": null
+  },
+  "00994A": {
+    "issuer": "第一金投信",
+    "pilot": true,
+    "driver": "none",
+    "csvUrl": null,
+    "notes": "試點：補上 csvUrl 後啟用官方優先"
+  },
+  "00995A": {
+    "issuer": "中信投信",
+    "pilot": false,
+    "driver": "none",
+    "csvUrl": null
+  },
+  "00996A": {
+    "issuer": "兆豐投信",
+    "pilot": false,
+    "driver": "none",
+    "csvUrl": null
+  }
+}

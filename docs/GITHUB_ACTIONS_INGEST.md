@@ -24,6 +24,12 @@
 
 ---
 
+## 官方來源（選用）
+
+預設 ingest 為 **Official-first + MoneyDJ fallback**（見 [`OFFICIAL_HOLDINGS_AUTOMATION.md`](OFFICIAL_HOLDINGS_AUTOMATION.md)）。GitHub Actions 無須額外設定即可沿用 MoneyDJ；若某檔已設定官方 CSV，可在 Repo **Variables** 新增 `OFFICIAL_CSV_<ETF>` 覆寫 URL。
+
+---
+
 ## 手動執行一次（測試）
 
 **Actions** 標籤 → 選 **Ingest ETF holdings** → **Run workflow** → 選分支 → **Run workflow**。
