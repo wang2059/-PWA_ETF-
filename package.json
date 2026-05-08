@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "ingest": "node scripts/run-ingest.mjs",
-    "ingest:dry": "node scripts/run-ingest.mjs --dry-run"
+    "ingest:dry": "node scripts/run-ingest.mjs --dry-run",
+    "check:max-trade-date": "node scripts/check-max-trade-date.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
